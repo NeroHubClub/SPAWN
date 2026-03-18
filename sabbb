@@ -1,11 +1,17 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local plr = Players.LocalPlayer
+
+-- Load required modules
 local Gradient = require(ReplicatedStorage.Packages.Gradients)
 local Rarities = require(ReplicatedStorage.Datas.Rarities)
 local Animals = require(ReplicatedStorage.Datas.Animals)
 
+-- Trait map and mutation map from your code
 local traitMap = {
     ["rbxassetid://89041930759464"] = {name = "Taco", mult = 2},
     ["rbxassetid://104229924295526"] = {name = "Nyan", mult = 5},
@@ -100,14 +106,6 @@ local mutationMap = {
         color = Color3.fromRGB(255, 255, 255),
         icon = "rbxassetid://112996178302302"
     },
-    ["YinYang"] = {
-        mult = 6.5,
-        displayText = "Yin Yang",
-        richText = "<stroke color=\"#fff\" thickness=\"2\"><font color=\"#000\">Yin</font></stroke> <stroke color=\"#000\" thickness=\"2\"><font color=\"#fff\">Yang</font></stroke>",
-        useRichText = true,
-        color = Color3.fromRGB(255, 255, 255),
-        icon = "rbxassetid://112996178302302"
-    },
     ["Radioactive"] = {
         mult = 7.5,
         displayText = "Radioactive",
@@ -118,12 +116,7 @@ local mutationMap = {
     }
 }
 
-local traitList = {}
-for assetId, data in pairs(traitMap) do
-    table.insert(traitList, data.name)
-end
-table.sort(traitList)
-
+-- Format number function
 local function formatNumber(num)
     local suffixes = {"", "K", "M", "B", "T", "Q"}
     local tier = 1
@@ -140,70 +133,7 @@ local function formatNumber(num)
     end
 end
 
-local function parseCurrency(str)
-    str = str:gsub("<[^>]+>", "")
-    str = str:gsub("%$", "")
-    str = str:gsub(",", "")
-    str = str:gsub("[^%d%.%a]", "")
-    
-    local numStr, suffix = str:match("^(%d*%.?%d+)(%a*)")
-    local num = tonumber(numStr) or 0
-    
-    suffix = suffix:upper()
-    local multipliers = {
-        K = 1000,
-        M = 1000000,
-        B = 1000000000,
-        T = 1000000000000,
-        Q = 1000000000000000
-    }
-    
-    return num * (multipliers[suffix] or 1)
-end
-
-local Controllers = ReplicatedStorage:WaitForChild("Controllers")
-local Utils = ReplicatedStorage:WaitForChild("Utils")
-local SoundController = require(Controllers.SoundController)
-
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer.PlayerGui
-local LeftBottom = PlayerGui:WaitForChild("LeftBottom"):WaitForChild("LeftBottom")
-local CashoutFrame = LeftBottom:FindFirstChild("Cashout")
-
-local cashoutTweenInfo = TweenInfo.new(5, Enum.EasingStyle.Linear)
-
-local function showCashout(text, isGreen, playSound)
-    if not CashoutFrame or not CashoutFrame.Template or not CashoutFrame.Template:IsA("TextLabel") then
-        return
-    end
-    
-    local label = CashoutFrame.Template:Clone()
-    label.Text = text
-    
-    local color = isGreen and Color3.fromRGB(13, 255, 0) or Color3.fromRGB(255, 0, 0)
-    label.TextColor3 = color
-    label.Visible = true
-    label.Parent = CashoutFrame
-    
-    local textTween = TweenService:Create(label, cashoutTweenInfo, {TextTransparency = 1})
-    local strokeTween = TweenService:Create(label.UIStroke, cashoutTweenInfo, {Transparency = 1})
-    
-    textTween.Completed:Once(function()
-        label:Destroy()
-    end)
-    
-    textTween:Play()
-    strokeTween:Play()
-    
-    if playSound and isGreen then
-        SoundController:PlaySound("Sounds.Sfx.Cashout")
-    end
-end
-
-local function getAnimalData(animalName)
-    return Animals[animalName] or {}
-end
-
+-- Get trait icon by name
 local function getTraitIconByName(traitName)
     for assetId, data in pairs(traitMap) do
         if data.name == traitName then
@@ -213,6 +143,7 @@ local function getTraitIconByName(traitName)
     return nil
 end
 
+-- Apply mutation visuals
 local function applyMutationVisuals(clonedAnimal, mutationName)
     if not mutationName or mutationName == "None" then return end
     
@@ -244,6 +175,7 @@ local function applyMutationVisuals(clonedAnimal, mutationName)
     end
 end
 
+-- Main spawn function
 local function spawnAnimal(animalName, selectedTraits, selectedMutation)
     local animalData = Animals[animalName]
     if not animalData then
@@ -272,9 +204,9 @@ local function spawnAnimal(animalName, selectedTraits, selectedMutation)
                     if textLabel then
                         local ownerText = textLabel.Text:gsub("^%s*(.-)%s*$", "%1")
                         
-                        if string.find(ownerText:lower(), LocalPlayer.Name:lower()) or 
-                           ownerText == LocalPlayer.Name or 
-                           string.find(ownerText, LocalPlayer.DisplayName) then
+                        if string.find(ownerText:lower(), plr.Name:lower()) or 
+                           ownerText == plr.Name or 
+                           string.find(ownerText, plr.DisplayName) then
                             
                             local podiums = plot:FindFirstChild("AnimalPodiums")
                             if podiums then
@@ -418,7 +350,6 @@ local function spawnAnimal(animalName, selectedTraits, selectedMutation)
                             end
                         end
                         
-                        -- Enable the effect
                         if vfxClone:IsA("ParticleEmitter") or vfxClone:IsA("Trail") or vfxClone:IsA("Beam") then
                             vfxClone.Enabled = true
                         end
@@ -520,23 +451,15 @@ local function spawnAnimal(animalName, selectedTraits, selectedMutation)
         proximityPrompt.Parent = clonedAnimal.PrimaryPart
         
         proximityPrompt.Triggered:Connect(function(player)
-            if player ~= LocalPlayer then return end
+            if player ~= plr then return end
             
             local sellPrice = animalData.Price / 2
             
-            local currencyLabel = PlayerGui.LeftBottom.LeftBottom:FindFirstChild("Currency")
-            if currencyLabel and currencyLabel:IsA("TextLabel") then
-                local currentMoney = parseCurrency(currencyLabel.Text)
-                currencyLabel.Text = "$" .. formatNumber(currentMoney + sellPrice)
-            end
-            
-            local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+            local leaderstats = plr:FindFirstChild("leaderstats")
             local cash = leaderstats and leaderstats:FindFirstChild("Cash")
             if cash and (cash:IsA("NumberValue") or cash:IsA("IntValue")) then
                 cash.Value = cash.Value + sellPrice
             end
-            
-            showCashout("+$" .. formatNumber(sellPrice), true, true)
             
             totalGeneration = 0
             if connection then
@@ -592,24 +515,17 @@ local function spawnAnimal(animalName, selectedTraits, selectedMutation)
             
             hitbox.Touched:Connect(function(hit)
                 local player = Players:GetPlayerFromCharacter(hit.Parent)
-                if player == LocalPlayer and clonedAnimal and clonedAnimal.Parent then
+                if player == plr and clonedAnimal and clonedAnimal.Parent then
                     local currentTime = os.time()
                     if currentTime - lastCollectTime >= 1 and totalGeneration > 0 then
                         lastCollectTime = currentTime
                         
-                        local currencyLabel = PlayerGui.LeftBottom.LeftBottom:FindFirstChild("Currency")
-                        if currencyLabel and currencyLabel:IsA("TextLabel") then
-                            local currentMoney = parseCurrency(currencyLabel.Text)
-                            currencyLabel.Text = "$" .. formatNumber(currentMoney + totalGeneration)
-                        end
-                        
-                        local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+                        local leaderstats = plr:FindFirstChild("leaderstats")
                         local cash = leaderstats and leaderstats:FindFirstChild("Cash")
                         if cash and (cash:IsA("NumberValue") or cash:IsA("IntValue")) then
                             cash.Value = cash.Value + totalGeneration
                         end
                         
-                        showCashout("+$" .. formatNumber(totalGeneration), true, true)
                         totalGeneration = 0
                         collectLabel.Text = "Collect<br/><font color=\"#73ff00\">$0</font>"
                     end
@@ -650,7 +566,6 @@ local function spawnAnimal(animalName, selectedTraits, selectedMutation)
             if selectedMutation and selectedMutation ~= "None" then
                 local mutationInfo = mutationMap[selectedMutation]
                 if mutationInfo then
-                    -- Use rich text formatting with proper handling
                     if mutationInfo.useRichText == true and mutationInfo.richText then
                         mutation.Text = mutationInfo.richText
                         mutation.RichText = true
@@ -728,10 +643,6 @@ local function spawnAnimal(animalName, selectedTraits, selectedMutation)
                         end
                     end
                     
-                    if EasyVisuals then
-                        EasyVisuals.new(rarityLabel, rarityConfig.EasyVisualsPresset, 0.6, nil, true, Color3.new(0, 0, 0))
-                    end
-                    
                 elseif rarityConfig.EasyVisualsPresset and EasyVisuals then
                     EasyVisuals.new(rarityLabel, rarityConfig.EasyVisualsPresset, nil, nil, true, rarityConfig.Color)
                 else
@@ -763,188 +674,282 @@ local function spawnAnimal(animalName, selectedTraits, selectedMutation)
     return true, clonedAnimal
 end
 
-local Library = loadstring(game:HttpGet("https://pastebin.com/raw/pEpqNPjw"))()
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "NeroBrainrotSpawnerV1"
+gui.Parent = CoreGui
+gui.ResetOnSpawn = false
 
-local Window = Library:CreateWindow({
-    Name = "Brainrot Spawner",
-    Theme = "Green"
-})
+-- MAIN WINDOW (300x200)
+local window = Instance.new("Frame")
+window.Size = UDim2.new(0, 300, 0, 200)
+window.Position = UDim2.new(0.5, -150, 0.5, -100)
+window.BackgroundColor3 = Color3.fromRGB(20,20,26)
+window.BorderSizePixel = 0
+window.Active = true
+window.Parent = gui
+Instance.new("UICorner", window).CornerRadius = UDim.new(0,10)
 
-local excludedAnimals = {
-    ["Secret Lucky Block"] = true,
-    ["Chimpanzini Spiderini"] = true,
-    ["Mythic Lucky Block"] = true,
-    ["Brainrot God Lucky Block"] = true
-}
+-- HEADER (draggable)
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1,0,0,35)
+header.BackgroundColor3 = Color3.fromRGB(15,15,20)
+header.Parent = window
+Instance.new("UICorner", header).CornerRadius = UDim.new(0,10)
 
-local animalList = {}
-for name in pairs(Animals) do
-    if not excludedAnimals[name] then
-        table.insert(animalList, name)
+-- TITLE
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,-40,1,0)
+title.Position = UDim2.new(0,10,0,0)
+title.BackgroundTransparency = 1
+title.Text = "Nero Brainrots Spawner v1"
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 12
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = header
+
+-- MINIMIZE BUTTON
+local hideBtn = Instance.new("TextButton")
+hideBtn.Size = UDim2.new(0,22,0,22)
+hideBtn.Position = UDim2.new(1,-27,0.5,-11)
+hideBtn.BackgroundColor3 = Color3.fromRGB(30,30,40)
+hideBtn.Text = "-"
+hideBtn.TextColor3 = Color3.new(1,1,1)
+hideBtn.Font = Enum.Font.GothamBold
+hideBtn.TextSize = 14
+hideBtn.Parent = header
+Instance.new("UICorner", hideBtn).CornerRadius = UDim.new(0,6)
+
+-- CONTENT
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1,0,1,-35)
+content.Position = UDim2.new(0,0,0,35)
+content.BackgroundTransparency = 1
+content.Parent = window
+
+-- MAIN FRAME
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 270, 0, 150)
+mainFrame.Position = UDim2.new(0.5, -135, 0.5, -75)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25,25,32)
+mainFrame.Parent = content
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0,8)
+
+-- BRAINROT TEXTBOX (UNA)
+local brainrotLabel = Instance.new("TextLabel")
+brainrotLabel.Size = UDim2.new(1, -20, 0, 18)
+brainrotLabel.Position = UDim2.new(0, 10, 0, 8)
+brainrotLabel.BackgroundTransparency = 1
+brainrotLabel.Text = "Brainrot:"
+brainrotLabel.TextColor3 = Color3.fromRGB(200,200,200)
+brainrotLabel.Font = Enum.Font.GothamBold
+brainrotLabel.TextSize = 11
+brainrotLabel.TextXAlignment = Enum.TextXAlignment.Left
+brainrotLabel.Parent = mainFrame
+
+local brainrotBox = Instance.new("TextBox")
+brainrotBox.Size = UDim2.new(1, -20, 0, 25)
+brainrotBox.Position = UDim2.new(0, 10, 0, 26)
+brainrotBox.BackgroundColor3 = Color3.fromRGB(40,40,50)
+brainrotBox.Text = ""
+brainrotBox.PlaceholderText = "Enter Brainrot name..."
+brainrotBox.ClearTextOnFocus = true
+brainrotBox.TextColor3 = Color3.new(1,1,1)
+brainrotBox.Font = Enum.Font.Gotham
+brainrotBox.TextSize = 11
+brainrotBox.Parent = mainFrame
+Instance.new("UICorner", brainrotBox).CornerRadius = UDim.new(0,6)
+
+-- MUTATION TEXTBOX (PANGALAWA)
+local mutationLabel = Instance.new("TextLabel")
+mutationLabel.Size = UDim2.new(1, -20, 0, 18)
+mutationLabel.Position = UDim2.new(0, 10, 0, 55)
+mutationLabel.BackgroundTransparency = 1
+mutationLabel.Text = "Mutation:"
+mutationLabel.TextColor3 = Color3.fromRGB(200,200,200)
+mutationLabel.Font = Enum.Font.GothamBold
+mutationLabel.TextSize = 11
+mutationLabel.TextXAlignment = Enum.TextXAlignment.Left
+mutationLabel.Parent = mainFrame
+
+local mutationBox = Instance.new("TextBox")
+mutationBox.Size = UDim2.new(1, -20, 0, 25)
+mutationBox.Position = UDim2.new(0, 10, 0, 73)
+mutationBox.BackgroundColor3 = Color3.fromRGB(40,40,50)
+mutationBox.Text = ""
+mutationBox.PlaceholderText = "Enter Mutation name..."
+mutationBox.ClearTextOnFocus = true
+mutationBox.TextColor3 = Color3.new(1,1,1)
+mutationBox.Font = Enum.Font.Gotham
+mutationBox.TextSize = 11
+mutationBox.Parent = mainFrame
+Instance.new("UICorner", mutationBox).CornerRadius = UDim.new(0,6)
+
+-- TRAIT TEXTBOX (PANGATLO)
+local traitLabel = Instance.new("TextLabel")
+traitLabel.Size = UDim2.new(1, -20, 0, 18)
+traitLabel.Position = UDim2.new(0, 10, 0, 102)
+traitLabel.BackgroundTransparency = 1
+traitLabel.Text = "Trait (optional):"
+traitLabel.TextColor3 = Color3.fromRGB(200,200,200)
+traitLabel.Font = Enum.Font.GothamBold
+traitLabel.TextSize = 11
+traitLabel.TextXAlignment = Enum.TextXAlignment.Left
+traitLabel.Parent = mainFrame
+
+local traitBox = Instance.new("TextBox")
+traitBox.Size = UDim2.new(1, -20, 0, 25)
+traitBox.Position = UDim2.new(0, 10, 0, 120)
+traitBox.BackgroundColor3 = Color3.fromRGB(40,40,50)
+traitBox.Text = ""
+traitBox.PlaceholderText = "Enter Trait name..."
+traitBox.ClearTextOnFocus = true
+traitBox.TextColor3 = Color3.new(1,1,1)
+traitBox.Font = Enum.Font.Gotham
+traitBox.TextSize = 11
+traitBox.Parent = mainFrame
+Instance.new("UICorner", traitBox).CornerRadius = UDim.new(0,6)
+
+-- SPAWN BUTTON (sa baba)
+local spawnBtn = Instance.new("TextButton")
+spawnBtn.Size = UDim2.new(0, 180, 0, 30)
+spawnBtn.Position = UDim2.new(0.5, -90, 0, 175)
+spawnBtn.BackgroundColor3 = Color3.fromRGB(0,170,255)
+spawnBtn.Text = "SPAWN"
+spawnBtn.TextColor3 = Color3.new(1,1,1)
+spawnBtn.Font = Enum.Font.GothamBold
+spawnBtn.TextSize = 12
+spawnBtn.Parent = content
+Instance.new("UICorner", spawnBtn).CornerRadius = UDim.new(0,6)
+
+-- Return placeholder text if empty
+brainrotBox.FocusLost:Connect(function()
+    if brainrotBox.Text == "" then
+        brainrotBox.Text = ""
     end
-end
-
-local animalsByRarity = {}
-for _, name in ipairs(animalList) do
-    local rarity = Animals[name].Rarity or "Unknown"
-    animalsByRarity[rarity] = animalsByRarity[rarity] or {}
-    table.insert(animalsByRarity[rarity], name)
-end
-
-local rarityOrder = {"Secret", "Brainrot God", "Mythic", "Legendary", "Epic", "Rare", "Common", "Unknown"}
-local sortedList = {}
-for _, rarity in ipairs(rarityOrder) do
-    for _, name in ipairs(animalsByRarity[rarity] or {}) do
-        table.insert(sortedList, name)
-    end
-end
-animalList = sortedList
-
-local mutationList = {"None"}
-for mutName in pairs(mutationMap) do
-    table.insert(mutationList, mutName)
-end
-table.sort(mutationList)
-
-local SpawnerTab = Window:CreateTab("SPAWNER", "rbxassetid://10723425615")
-local SpawnerSection = SpawnerTab:CreateSection("Brainrot Spawner")
-
-local selectedAnimal = animalList[1] or "None"
-local selectedTraits = {}
-local selectedMutation = "None"
-local traitToggles = {}
-
-SpawnerSection:CreateDropdown("Select Brainrot", animalList, animalList[1], function(choice)
-    selectedAnimal = choice
 end)
 
-SpawnerSection:CreateDropdown("Select Mutation", mutationList, "None", function(choice)
-    selectedMutation = choice
+mutationBox.FocusLost:Connect(function()
+    if mutationBox.Text == "" then
+        mutationBox.Text = ""
+    end
 end)
 
-local traitSelectionSection = SpawnerTab:CreateSection("Trait Selection (Infinite)")
+traitBox.FocusLost:Connect(function()
+    if traitBox.Text == "" then
+        traitBox.Text = ""
+    end
+end)
 
-for _, traitName in ipairs(traitList) do
-    local toggle = traitSelectionSection:CreateToggle(traitName, false, function(state)
-        if state then
-            if not table.find(selectedTraits, traitName) then
-                table.insert(selectedTraits, traitName)
-            end
-        else
-            local index = table.find(selectedTraits, traitName)
-            if index then
-                table.remove(selectedTraits, index)
-            end
-        end
-    end)
-    traitToggles[traitName] = toggle
-end
-
-local ActionsSection = SpawnerTab:CreateSection("Actions")
-
-ActionsSection:CreateButton("Spawn Brainrot", function()
-    if not selectedAnimal or selectedAnimal == "None" or selectedAnimal == "" then
+-- SPAWN FUNCTION
+spawnBtn.MouseButton1Click:Connect(function()
+    local animalName = brainrotBox.Text
+    if animalName == "" then
+        brainrotBox.PlaceholderText = "Enter brainrot name!"
         return
     end
-
-    local traitsToApply = {}
-    for _, trait in ipairs(selectedTraits) do
-        table.insert(traitsToApply, trait)
+    
+    -- Get mutation
+    local mutationName = mutationBox.Text
+    if mutationName == "" then
+        mutationName = nil
     end
     
-    local mutationToApply = (selectedMutation == "None") and nil or selectedMutation
-
-    local success, result = spawnAnimal(selectedAnimal, traitsToApply, mutationToApply)
-    if not success then
-        warn("Failed to spawn: " .. tostring(result))
-    end
-end)
-
-ActionsSection:CreateButton("Clear All Traits", function()
-    selectedTraits = {}
-    for traitName, toggle in pairs(traitToggles) do
-        if toggle and toggle.Set then
-            toggle:Set(false)
+    -- Parse traits (kung may nilagay)
+    local traitsToApply = {}
+    if traitBox.Text ~= "" then
+        -- Split by comma kung maraming traits
+        for trait in string.gmatch(traitBox.Text, "([^,]+)") do
+            local trimmed = trait:match("^%s*(.-)%s*$") -- Remove spaces
+            if trimmed ~= "" then
+                table.insert(traitsToApply, trimmed)
+            end
         end
     end
+    
+    -- Call spawn function
+    local success, result = spawnAnimal(animalName, traitsToApply, mutationName)
+    if not success then
+        warn("Failed to spawn: " .. tostring(result))
+        brainrotBox.PlaceholderText = "Invalid brainrot name!"
+    end
 end)
 
-local function createNotification(title, description, duration, iconId)
-    duration = duration or 5
-    iconId = iconId or "rbxassetid://10747359646"  -- Default Discord-like icon, change if needed
+-- MINIMIZE FUNCTION
+local minimized = false
+local originalSize = window.Size
+
+hideBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
     
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "CustomNotificationGui"
-    screenGui.ResetOnSpawn = false
-    screenGui.Parent = game:GetService("CoreGui")
-    
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 300, 0, 80)
-    frame.Position = UDim2.new(1, -320, 0, 20)  -- Start off-screen
-    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    frame.BorderSizePixel = 0
-    frame.BackgroundTransparency = 0.1
-    frame.Parent = screenGui
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = frame
-    
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(80, 80, 80)
-    stroke.Thickness = 1
-    stroke.Parent = frame
-    
-    local icon = Instance.new("ImageLabel")
-    icon.Size = UDim2.new(0, 50, 0, 50)
-    icon.Position = UDim2.new(0, 15, 0.5, -25)
-    icon.BackgroundTransparency = 1
-    icon.Image = iconId
-    icon.Parent = frame
-    
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -80, 0, 25)
-    titleLabel.Position = UDim2.new(0, 75, 0, 10)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = title
-    titleLabel.TextColor3 = Color3.new(1, 1, 1)
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.TextSize = 18
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.Parent = frame
-    
-    local descLabel = Instance.new("TextLabel")
-    descLabel.Size = UDim2.new(1, -80, 0, 30)
-    descLabel.Position = UDim2.new(0, 75, 0, 35)
-    descLabel.BackgroundTransparency = 1
-    descLabel.Text = description
-    descLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    descLabel.Font = Enum.Font.Gotham
-    descLabel.TextSize = 14
-    descLabel.TextWrapped = true
-    descLabel.TextXAlignment = Enum.TextXAlignment.Left
-    descLabel.Parent = frame
-    
-    -- Animate in
-    frame:TweenPosition(UDim2.new(1, -320, 0, 20), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.5, true)
-    
-    -- Auto destroy after duration
-    task.delay(duration, function()
-        frame:TweenPosition(UDim2.new(1, 20, 0, 20), Enum.EasingDirection.In, Enum.EasingStyle.Quad, 0.5, true, function()
-            screenGui:Destroy()
+    if minimized then
+        -- Minimize
+        local goal = {
+            Size = UDim2.new(0, 300, 0, 35)
+        }
+        local tween = TweenService:Create(window, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal)
+        tween:Play()
+        content.Visible = false
+        hideBtn.Text = "+"
+        
+        tween.Completed:Connect(function()
+            window.Size = UDim2.new(0, 300, 0, 35)
         end)
-    end)
+    else
+        -- Restore
+        local goal = {
+            Size = originalSize
+        }
+        local tween = TweenService:Create(window, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal)
+        tween:Play()
+        content.Visible = true
+        hideBtn.Text = "-"
+        
+        tween.Completed:Connect(function()
+            window.Size = originalSize
+        end)
+    end
+end)
+
+-- DRAGGING (for both mouse and touch)
+local dragging = false
+local dragInput
+local dragStart
+local startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    window.Position = UDim2.new(
+        startPos.X.Scale, 
+        startPos.X.Offset + delta.X,
+        startPos.Y.Scale, 
+        startPos.Y.Offset + delta.Y
+    )
 end
 
-local DiscordTab = Window:CreateTab("DISCORD", "rbxassetid://10747359646")
+header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = window.Position
 
-local DiscordSection = DiscordTab:CreateSection("Community Hub")
-
-local discordInvite = "https://discord.gg/VJH9YUcFDr"
-
-DiscordSection:CreateButton("Copy Discord Invite", function()
-    setclipboard(discordInvite)
-    createNotification("Discord Invite Copied!", "Join the best scripts discord server!\nInstant Steal, de-sync, dupe & more.", 6, "rbxassetid://10747359646")
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
 end)
 
-DiscordSection:CreateLabel("Join the best scripts discord server!\nInstant Steal, de-sync, dupe & more.")
+header.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
